@@ -7,11 +7,16 @@ import { describe, it, expect } from "vitest";
 import { D } from "../src/core/bigNum";
 import {
   canRebirth,
+  canOrdinalRebirth,
+  ordinalName,
+  ordinalMult,
+  totalMult,
   pointsFromTotal,
   permanentMult,
   doRebirth,
   PERMANENT_UPGRADE_COST,
   REBIRTH_THRESHOLD,
+  ORDINAL_THRESHOLD,
 } from "../src/game/rebirth";
 
 describe("canRebirth", () => {
@@ -66,5 +71,56 @@ describe("PERMANENT_UPGRADE_COST", () => {
   it("价格 1,2,4,8…", () => {
     expect(PERMANENT_UPGRADE_COST(0).toString()).toBe("1");
     expect(PERMANENT_UPGRADE_COST(2).toString()).toBe("4");
+  });
+});
+
+// ---------- 阶段 3：序数转生 ----------
+describe("canOrdinalRebirth", () => {
+  it("累计产出达到 10↑↑5 前不可序数转生", () => {
+    expect(canOrdinalRebirth(D("10^^4"))).toBe(false);
+    expect(canOrdinalRebirth(D(1e105))).toBe(false);
+  });
+
+  it("达到 10↑↑5 可序数转生", () => {
+    expect(canOrdinalRebirth(ORDINAL_THRESHOLD)).toBe(true);
+    expect(canOrdinalRebirth(D("10^^5"))).toBe(true);
+  });
+});
+
+describe("ordinalName", () => {
+  it("0 级未进入序数领域", () => {
+    expect(ordinalName(0)).toBe("—");
+  });
+
+  it("1~7 级依次为 ε₀ / ζ₀ / Γ₀ / φ(ω,0) / ω₁^CK / TREE(3) / Rayo(10^100)", () => {
+    expect(ordinalName(1)).toBe("ε₀");
+    expect(ordinalName(3)).toBe("Γ₀");
+    expect(ordinalName(6)).toBe("TREE(3)");
+    expect(ordinalName(7)).toBe("Rayo(10^100)");
+  });
+
+  it("超出列表用 ε[n] 兜底", () => {
+    expect(ordinalName(8)).toBe("ε[8]");
+    expect(ordinalName(20)).toBe("ε[20]");
+  });
+});
+
+describe("ordinalMult", () => {
+  it("0 级无加成", () => {
+    expect(ordinalMult(0).toString()).toBe("1");
+  });
+
+  it("每级 ×10^100", () => {
+    expect(ordinalMult(1).toString()).toBe("1e100");
+    expect(ordinalMult(2).toString()).toBe("1e200");
+  });
+});
+
+describe("totalMult", () => {
+  it("永久加成 × 序数加成", () => {
+    const m = totalMult(2, 1);
+    // 1.1^2 = 1.21, ×1e100
+    expect(m.log10().toNumber()).toBeCloseTo(100 + Math.log10(1.21), 5);
+    expect(m.gt(D("1e100"))).toBe(true);
   });
 });

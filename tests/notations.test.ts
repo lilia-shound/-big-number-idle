@@ -59,8 +59,18 @@ describe("checkUnlocks 解锁判定", () => {
     expect(fresh.map((s) => s.id)).toEqual(["hyperop", "arrow"]);
   });
 
-  it("ordinal 永远不会由数值解锁", () => {
+  it("ordinal 不会仅由数值解锁", () => {
     const fresh = checkUnlocks(["plain", "scientific", "tower", "hyperop", "arrow", "chain"], D("10^^1e6"));
+    expect(fresh.map((s) => s.id)).toEqual([]);
+  });
+
+  it("序数转生后（ordinalLevel ≥ 1）解锁 ordinal", () => {
+    const fresh = checkUnlocks(["plain", "scientific", "tower", "hyperop", "arrow", "chain"], D(0), 1);
+    expect(fresh.map((s) => s.id)).toEqual(["ordinal"]);
+  });
+
+  it("ordinalLevel 为 0 时不解锁 ordinal", () => {
+    const fresh = checkUnlocks(["plain", "scientific", "tower", "hyperop", "arrow", "chain"], D("10^^4"), 0);
     expect(fresh.map((s) => s.id)).toEqual([]);
   });
 });

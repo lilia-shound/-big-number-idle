@@ -4,6 +4,7 @@
  * 纯展示逻辑，不包含任何游戏规则。
  *
  * 阶段 2：新增表示法面板（当前表示法 / 下一目标）与解锁教程弹窗。
+ * 阶段 3：序数转生面板（序数等级 / 当前序数 / 门槛）与序数加成展示。
  */
 
 import { format, formatInt } from "./core/format";
@@ -11,11 +12,17 @@ import { D } from "./core/bigNum";
 import type { GameState } from "./game/save";
 import { GENERATOR_DEFS, generatorCost } from "./game/generators";
 import { UPGRADE_DEFS } from "./game/upgrades";
-import { canRebirth, PERMANENT_UPGRADE_COST } from "./game/rebirth";
+import {
+  canRebirth,
+  canOrdinalRebirth,
+  ordinalName,
+  ORDINAL_THRESHOLD,
+  PERMANENT_UPGRADE_COST,
+} from "./game/rebirth";
 import { makeTickContext, perSecondTmp } from "./game/uiHelper";
 import {
   NOTATION_STAGES,
-  getNotationFor,
+  getTopUnlockedNotation,
   unlockThreshold,
   type NotationStage,
 } from "./game/notations";
@@ -58,24 +65,45 @@ export function showTutorial(ui: UiState, stage: NotationStage): void {
   }
 }
 
-/** 渲染表示法面板：当前表示法 + 下一目标 */
+/** 渲染表示法面板：最高已解锁表示法（路线进度）+ 下一目标 */
 function renderNotation(state: GameState): void {
-  const current = getNotationFor(state.totalEarned);
-  $id("notation-name").textContent = current.name;
-  $id("notation-example").textContent = current.example;
+  const current = getTopUnlockedNotation(state.unlockedNotations);
+  $id("notation-name").textContent = current.id === "ordinal"
+    ? `序数 / 递归 · ${ordinalName(state.ordinalLevel)}`
+    : current.name;
+  $id("notation-example").textContent = current.id === "ordinal"
+    ? ordinalName(state.ordinalLevel)
+    : current.example;
 
   const have = new Set(state.unlockedNotations);
-  // 找第一个未解锁的常规表示法（跳过 ordinal：阶段 3）
-  const next = NOTATION_STAGES.find((s) => !have.has(s.id) && s.id !== "ordinal");
+  const next = NOTATION_STAGES.find((st) => !have.has(st.id));
   const nextEl = $id("notation-next");
   if (!next) {
     nextEl.textContent = "表示法已全部解锁！";
     return;
   }
   const th = unlockThreshold(next);
-  nextEl.textContent = th
-    ? `下一表示法：${next.name}（需要累计产出达到 ${next.unlockAt}）`
-    : `下一表示法：${next.name}（${next.unlockAt}）`;
+  if (th === null) {
+    // ordinal：由序数转生解锁
+    nextEl.textContent = `下一表示法：${next.name}（累计产出达 10↑↑5 后序数转生）`;
+    return;
+  }
+  nextEl.textContent = `下一表示法：${next.name}（需要累计产出达到 ${next.unlockAt}）`;
+}
+
+/** 渲染序数转生面板 */
+function renderOrdinal(state: GameState): void {
+  $id("ordinal-level").textContent = String(state.ordinalLevel);
+  $id("ordinal-name").textContent = ordinalName(state.ordinalLevel);
+  $id("ordinal-mult").textContent =
+    state.ordinalLevel > 0 ? `×10^${state.ordinalLevel * 100}` : "×1";
+
+  const btn = $id("btn-ordinal") as HTMLButtonElement;
+  const ready = canOrdinalRebirth(state.totalEarned);
+  btn.disabled = !ready;
+  $id("ordinal-req").textContent = ready
+    ? "可以进行序数转生！"
+    : `距序数转生还差累计产出 ${format(ORDINAL_THRESHOLD.sub(state.totalEarned).max(D(0)))}`;
 }
 
 export function updateUi(state: GameState, ui: UiState): void {
@@ -150,6 +178,9 @@ export function updateUi(state: GameState, ui: UiState): void {
     }
     upBox.appendChild(card);
   }
+
+  // 序数转生
+  renderOrdinal(state);
 
   // 转生
   $("layer-points").textContent = formatInt(state.layerPoints);

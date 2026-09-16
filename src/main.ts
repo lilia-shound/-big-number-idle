@@ -3,6 +3,7 @@
  * 入口：加载存档 → 离线收益结算 → 游戏循环 → 事件绑定 → 自动保存。
  * 阶段 1：点击 + 3 生成器 + 10 升级 + 转生 + 层级点永久加成。
  * 阶段 2：表示法解锁系统（累计产出跨过门槛自动解锁并弹教程）。
+ * 阶段 3：序数转生（终极转生）→ 序数领域，解锁序数表示法与海量加成。
  *
  * 节奏设计：游戏规则按"每秒"结算（tick），UI 每 100ms 刷新。
  */
@@ -19,7 +20,12 @@ import {
   computeOffline,
   makeTickContext,
 } from "./game/save";
-import { doRebirth, PERMANENT_UPGRADE_COST } from "./game/rebirth";
+import {
+  doRebirth,
+  canOrdinalRebirth,
+  ordinalName,
+  PERMANENT_UPGRADE_COST,
+} from "./game/rebirth";
 import { updateUi, initUi, showTutorial, type UiState } from "./ui";
 import { checkUnlocks } from "./game/notations";
 
@@ -35,7 +41,7 @@ const ui: UiState = initUi();
  * 新解锁的表示法写入存档并弹教程。
  */
 function syncUnlocks(): void {
-  const fresh = checkUnlocks(state.unlockedNotations, state.totalEarned);
+  const fresh = checkUnlocks(state.unlockedNotations, state.totalEarned, state.ordinalLevel);
   for (const stage of fresh) {
     state.unlockedNotations.push(stage.id);
     showTutorial(ui, stage);
@@ -112,6 +118,20 @@ function onBuyPermanent(): void {
   }
 }
 
+/** 序数转生（终极转生）：重置全部产出资源，序数等级 +1，保留已解锁表示法 */
+function onOrdinalRebirth(): void {
+  if (!canOrdinalRebirth(state.totalEarned)) return;
+  state.ordinalLevel += 1;
+  state.number = D(0);
+  state.totalEarned = D(0);
+  state.counts = { gen1: 0, gen2: 0, gen3: 0 };
+  state.upgrades = [];
+  state.layerPoints = ZERO;
+  state.permanentLevel = 0;
+  ui.offlineNote = `进入序数领域 ${ordinalName(state.ordinalLevel)}！产出 ×10^${state.ordinalLevel * 100}`;
+  syncUnlocks();
+}
+
 /** 每秒游戏逻辑（含转生门槛软上限：数字在 1e95~1e105 间压缩，防层级点爆炸；过 1e105 解除压缩冲刺更高表示法） */
 function tickGame(): void {
   const before = state.number;
@@ -134,6 +154,7 @@ updateUi(state, ui);
 document.getElementById("btn-click")!.addEventListener("click", onClick);
 document.getElementById("btn-rebirth")!.addEventListener("click", onRebirth);
 document.getElementById("btn-permanent")!.addEventListener("click", onBuyPermanent);
+document.getElementById("btn-ordinal")!.addEventListener("click", onOrdinalRebirth);
 document.addEventListener("click", (e) => {
   const target = (e.target as HTMLElement).closest("[data-buy]") as HTMLElement | null;
   if (!target) return;

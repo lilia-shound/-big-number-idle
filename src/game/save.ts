@@ -3,14 +3,16 @@
  * 存档：localStorage 序列化（版本化 + 容错），含离线收益结算。
  *
  * v2：新增 unlockedNotations（已解锁表示法列表），兼容 v1 旧档。
+ * v3：新增 ordinalLevel（序数等级，阶段 3 序数转生），兼容 v1/v2。
  */
 
 import Decimal from "break_eternity.js";
 import { D, ZERO } from "../core/bigNum";
 import { tick, TickContext, applySoftCap } from "./generators";
+import { totalMult } from "./rebirth";
 
 export const SAVE_KEY = "big-number-idle-save";
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** 离线收益：上限 8 小时；基础倍率 2x，升级后 4x */
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
@@ -29,6 +31,8 @@ export interface GameState {
   rebirths: number;
   /** 已解锁的表示法 id 列表（至少包含 plain） */
   unlockedNotations: string[];
+  /** 序数等级（序数转生次数）：≥1 进入序数领域 */
+  ordinalLevel: number;
   /** 上次存档时间戳（ms） */
   lastSaved: number;
   /** 是否刚刚结算过离线收益（避免重复） */
@@ -47,6 +51,7 @@ export function initialState(): GameState {
     permanentLevel: 0,
     rebirths: 0,
     unlockedNotations: ["plain"],
+    ordinalLevel: 0,
     lastSaved: Date.now(),
     offlineApplied: false,
   };
@@ -66,7 +71,7 @@ export function deserialize(raw: string): GameState | null {
   try {
     const obj = JSON.parse(raw);
     if (!obj || typeof obj !== "object") return null;
-    if (obj.version !== SAVE_VERSION && obj.version !== 1) return null;
+    if (obj.version !== SAVE_VERSION && obj.version !== 1 && obj.version !== 2) return null;
     return {
       ...initialState(),
       ...obj,
@@ -79,6 +84,8 @@ export function deserialize(raw: string): GameState | null {
       unlockedNotations: Array.isArray(obj.unlockedNotations)
         ? obj.unlockedNotations
         : ["plain"],
+      // v1/v2 旧档无此字段，兜底为 0
+      ordinalLevel: typeof obj.ordinalLevel === "number" ? obj.ordinalLevel : 0,
     };
   } catch {
     return null;
@@ -101,7 +108,7 @@ export function makeTickContext(state: GameState): TickContext {
   return {
     counts: state.counts,
     upgrades: new Set(state.upgrades),
-    permanentMult: D(1.1).pow(state.permanentLevel),
+    permanentMult: totalMult(state.permanentLevel, state.ordinalLevel),
   };
 }
 

@@ -42,6 +42,34 @@ describe("serialize / deserialize", () => {
     expect(deserialize("not json")).toBeNull();
     expect(deserialize(JSON.stringify({ version: 999 }))).toBeNull();
   });
+
+  it("v1/v2 旧档迁移：ordinalLevel 兜底为 0", () => {
+    const v2 = {
+      version: 2,
+      number: "1e50",
+      totalEarned: "1e100",
+      clickPower: "1",
+      counts: { gen1: 3, gen2: 1, gen3: 0 },
+      upgrades: ["clickx2"],
+      layerPoints: "1",
+      permanentLevel: 1,
+      rebirths: 2,
+      unlockedNotations: ["plain", "scientific"],
+      lastSaved: Date.now(),
+      offlineApplied: false,
+    };
+    const loaded = deserialize(JSON.stringify(v2))!;
+    expect(loaded.ordinalLevel).toBe(0);
+    expect(loaded.unlockedNotations).toEqual(["plain", "scientific"]);
+    expect(loaded.number.eq(D("1e50"))).toBe(true);
+  });
+
+  it("v3 存档保留 ordinalLevel", () => {
+    const s3 = initialState();
+    s3.ordinalLevel = 3;
+    const loaded = deserialize(serialize(s3))!;
+    expect(loaded.ordinalLevel).toBe(3);
+  });
 });
 
 describe("computeOffline", () => {

@@ -129,11 +129,17 @@ export function getStageById(id: string): NotationStage {
 
 /**
  * 检查累计产出是否跨过尚未解锁的表示法门槛。
+ * ordinal 阶段由序数转生层数控制（ordinalLevel ≥ 1 解锁，阶段 3）。
  * @param unlocked 已解锁 id 列表
  * @param totalEarned 累计产出
+ * @param ordinalLevel 序数等级（序数转生次数）
  * @returns 新解锁的阶段列表（按顺序，不含已解锁项）
  */
-export function checkUnlocks(unlocked: string[], totalEarned: DecimalSource): NotationStage[] {
+export function checkUnlocks(
+  unlocked: string[],
+  totalEarned: DecimalSource,
+  ordinalLevel = 0
+): NotationStage[] {
   const have = new Set(unlocked);
   const out: NotationStage[] = [];
   for (const stage of NOTATION_STAGES) {
@@ -142,7 +148,22 @@ export function checkUnlocks(unlocked: string[], totalEarned: DecimalSource): No
     if (th !== null && new Decimal(totalEarned).gte(th)) {
       out.push(stage);
       have.add(stage.id);
+    } else if (th === null && stage.id === "ordinal" && ordinalLevel >= 1) {
+      out.push(stage);
+      have.add(stage.id);
     }
   }
   return out;
+}
+
+/**
+ * 当前已解锁的最高表示法（表示法面板主展示）。
+ * 转生/序数转生不影响已解锁列表，因此显示的是"路线进度"而非当前数值阶段。
+ * @returns 阶段；unlocked 为空时返回 plain
+ */
+export function getTopUnlockedNotation(unlocked: string[]): NotationStage {
+  for (let i = NOTATION_STAGES.length - 1; i >= 0; i--) {
+    if (unlocked.includes(NOTATION_STAGES[i].id)) return NOTATION_STAGES[i];
+  }
+  return NOTATION_STAGES[0];
 }

@@ -9,7 +9,7 @@
     <div id="app">
       <header class="hero">
         <h1>Big Number Idle</h1>
-        <p class="subtitle">把大数表示法本身做成玩法 · 阶段 2 表示法解锁</p>
+        <p class="subtitle">把大数表示法本身做成玩法 · 阶段 3 序数领域</p>
       </header>
 
       <main>
@@ -67,6 +67,29 @@
             <button id="btn-permanent" class="btn">购买永久 +10%（1 层级点）</button>
           </div>
           <p id="rebirth-req" class="hint"></p>
+        </section>
+
+        <section id="ordinal-panel" class="panel">
+          <h2>序数转生</h2>
+          <p class="hint">累计产出达到 10↑↑5 后进入序数领域：重置全部资源，获得序数等级与海量产出加成（×10^100 / 级）。</p>
+          <div class="rebirth-row">
+            <div class="stat">
+              <span class="stat-label">序数等级</span>
+              <span id="ordinal-level" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">当前序数</span>
+              <span id="ordinal-name" class="stat-value">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">产出加成</span>
+              <span id="ordinal-mult" class="stat-value">×1</span>
+            </div>
+          </div>
+          <div class="rebirth-row">
+            <button id="btn-ordinal" class="btn btn-danger" disabled>序数转生</button>
+          </div>
+          <p id="ordinal-req" class="hint"></p>
         </section>
       </main>
 

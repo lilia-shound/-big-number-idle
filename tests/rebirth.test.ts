@@ -31,6 +31,12 @@ describe("pointsFromTotal", () => {
     expect(pointsFromTotal(D(1e250)).toString()).toBe("2");
     expect(pointsFromTotal(D(1e99)).toString()).toBe("0");
   });
+
+  it("单次层级点封顶 2，防转生点数爆炸", () => {
+    // 若无封顶，1e300 / 1e1e6 会结算出天文数字层级点
+    expect(pointsFromTotal(D(1e300)).toString()).toBe("2");
+    expect(pointsFromTotal(D("1e1e6")).toString()).toBe("2");
+  });
 });
 
 describe("doRebirth", () => {

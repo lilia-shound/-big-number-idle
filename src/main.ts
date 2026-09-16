@@ -9,7 +9,7 @@
 import "./style.css";
 import { D, ZERO } from "./core/bigNum";
 import { format } from "./core/format";
-import { tick, generatorCost, GENERATOR_DEFS } from "./game/generators";
+import { tick, generatorCost, GENERATOR_DEFS, applySoftCap } from "./game/generators";
 import { UPGRADE_DEFS } from "./game/upgrades";
 import {
   initialState,
@@ -97,12 +97,13 @@ function onBuyPermanent(): void {
   }
 }
 
-/** 每秒游戏逻辑 */
+/** 每秒游戏逻辑（含转生门槛软上限：数字在 1e95~1e105 间压缩，防层级点爆炸） */
 function tickGame(): void {
   const before = state.number;
   const ctx = makeTickContext(state);
-  state.number = tick(state.number, ctx);
-  const gained = state.number.sub(before);
+  const capped = applySoftCap(tick(state.number, ctx));
+  const gained = capped.sub(before);
+  state.number = capped;
   if (gained.gt(ZERO)) {
     state.totalEarned = state.totalEarned.add(gained);
   }

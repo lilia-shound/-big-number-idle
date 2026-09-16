@@ -5,7 +5,7 @@
 
 import Decimal from "break_eternity.js";
 import { D, ZERO } from "../core/bigNum";
-import { tick, TickContext } from "./generators";
+import { tick, TickContext, applySoftCap } from "./generators";
 
 export const SAVE_KEY = "big-number-idle-save";
 export const SAVE_VERSION = 1;
@@ -107,8 +107,10 @@ export function computeOffline(state: GameState, now: number): { gain: Decimal; 
   const seconds = capped / 1000;
   const mult = state.upgrades.includes("offlinex2") ? OFFLINE_UPGRADED_MULT : OFFLINE_BASE_MULT;
   const ctx = makeTickContext(state);
-  // 用 1 秒产出估算，再乘离线时长与倍率
+  // 用 1 秒产出估算，再乘离线时长与倍率；结算后应用软上限（与在线一致）
   const oneSec = tick(state.number, ctx).sub(state.number);
-  const gain = oneSec.mul(seconds).mul(mult).max(ZERO);
+  const rawGain = oneSec.mul(seconds).mul(mult).max(ZERO);
+  const cappedNum = applySoftCap(state.number.add(rawGain));
+  const gain = cappedNum.sub(state.number).max(ZERO);
   return { gain, seconds, mult };
 }

@@ -104,3 +104,38 @@ export function tick(num: Decimal, ctx: TickContext): Decimal {
 export function perSecond(num: Decimal, ctx: TickContext): Decimal {
   return tick(num, ctx).sub(num).abs();
 }
+
+// ---------- 软上限（转生门槛压缩带） ----------
+/**
+ * 接近转生门槛 1e100 时对数字本身做 log10 空间压缩，防止超指数生成器
+ * 一口气冲过门槛太远、导致转生层级点结算爆炸。
+ * 1e95 起生效，数字 log10 渐近封顶 1e105（永远无法冲过头），
+ * 玩家在 log10 ≥ ~98.5 后即可达到 1e100 并转生。
+ */
+export const SOFT_START_LOG = 95; // 1e95 起压缩
+export const SOFT_CAP_LOG = 105; // 压缩后的 log10 绝对上限（数字 ≤ 1e105）
+export const SOFT_RAMP = 5; // 压缩强度：extra/5 指数衰减
+
+/** 平滑阶跃：t∈[0,1] → [0,1]（smoothstep） */
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+/** 软上限产出倍率：x = log10(num)，仅用于展示衰减曲线 */
+export function softCapFactor(num: Decimal): number {
+  const x = num.log10().toNumber();
+  if (!Number.isFinite(x) || x <= SOFT_START_LOG) return 1;
+  if (x > SOFT_CAP_LOG) return 0;
+  const t = (x - SOFT_START_LOG) / (SOFT_CAP_LOG - SOFT_START_LOG); // 0~1
+  // 单调衰减：在压缩带内从 1 平滑降到 0（表达"数字越接近上限推进越慢"）
+  return 1 - smoothstep(t);
+}
+
+/** 应用软上限：压缩后的数字（tick 后调用） */
+export function applySoftCap(num: Decimal): Decimal {
+  const x = num.log10().toNumber();
+  if (!Number.isFinite(x) || x <= SOFT_START_LOG) return num;
+  const extra = x - SOFT_START_LOG;
+  const y = SOFT_START_LOG + (SOFT_CAP_LOG - SOFT_START_LOG) * (1 - Math.exp(-extra / SOFT_RAMP));
+  return D(10).pow(y);
+}

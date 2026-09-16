@@ -12,6 +12,7 @@ import {
   tickGen3,
   generatorCost,
   GENERATOR_DEFS,
+  applySoftCap,
 } from "../src/game/generators";
 
 const noUpgrades = new Set<string>();
@@ -80,5 +81,37 @@ describe("tick 综合", () => {
     }
     // 每秒 ×4，60 秒：1e10 × 4^60 ≈ 1e46
     expect(n.log10().toNumber()).toBeGreaterThan(40);
+  });
+});
+
+describe("applySoftCap 软上限", () => {
+  it("门槛前不压缩", () => {
+    expect(applySoftCap(D(1)).toString()).toBe("1");
+    expect(applySoftCap(D(1e90)).toString()).toBe("1e90");
+    expect(applySoftCap(D(1e94)).toString()).toBe("1e94");
+  });
+
+  it("1e95 起压缩，逼近 1e100 后仍可到达门槛", () => {
+    // 原始 log10=98.5 → 压缩后已 ≥ 1e100，可转生
+    expect(applySoftCap(D(10).pow(98.5)).log10().toNumber()).toBeGreaterThanOrEqual(100);
+    // 原始 log10=100 → 压缩后约 101.3
+    const y = applySoftCap(D(10).pow(100)).log10().toNumber();
+    expect(y).toBeGreaterThan(100);
+    expect(y).toBeLessThan(102);
+  });
+
+  it("log10 渐近封顶 1e105，数字永不冲过头", () => {
+    // 原始 log10 再大（如 1e4、1e6），压缩后都不超过 1e105
+    const cap = applySoftCap(D("1e1e4")).log10().toNumber();
+    expect(cap).toBeLessThanOrEqual(105);
+    expect(cap).toBeGreaterThan(104.5);
+    expect(applySoftCap(D("1e1e6")).log10().toNumber()).toBeLessThanOrEqual(105);
+  });
+
+  it("不会因极大数溢出而异常", () => {
+    // 数字极大（log10 很大）时压缩结果仍为有效数字
+    const out = applySoftCap(D("1e1e100"));
+    expect(out.log10().toNumber()).toBeGreaterThan(0);
+    expect(out.log10().toNumber()).toBeLessThanOrEqual(105);
   });
 });

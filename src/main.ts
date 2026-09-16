@@ -61,7 +61,7 @@ function applyOffline(): void {
     state.lastSaved = now;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    ui.offlineNote = `离线 ${h > 0 ? `${h}小时` : ""}${m}分钟，获得 ${format(gain, 2, state.upgrades.includes("sci"))}（×${mult}）`;
+    ui.offlineNote = `离线 ${h > 0 ? `${h}小时` : ""}${m}分钟，获得 ${format(gain, 2, state.unlockedNotations.includes("scientific"))}（×${mult}）`;
     ui.offlineNoteExpire = Date.now() + OFFLINE_NOTE_MS;
   }
 }

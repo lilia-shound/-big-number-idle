@@ -7,8 +7,57 @@
   </head>
   <body>
     <div id="app">
-      <h1>Big Number Idle</h1>
-      <p>阶段 0：项目骨架。游戏内容在阶段 1 实现。</p>
+      <header class="hero">
+        <h1>Big Number Idle</h1>
+        <p class="subtitle">把大数表示法本身做成玩法 · 阶段 1 最小原型</p>
+      </header>
+
+      <main>
+        <section id="number-panel" class="panel center">
+          <div id="num" class="big-number">0</div>
+          <div id="per-second" class="hint">每秒 0</div>
+          <button id="btn-click" class="btn btn-primary btn-big">+1</button>
+          <div id="offline-note" class="note hidden"></div>
+        </section>
+
+        <section id="generators-panel" class="panel">
+          <h2>生成器</h2>
+          <div id="generators" class="cards"></div>
+        </section>
+
+        <section id="upgrades-panel" class="panel">
+          <h2>升级</h2>
+          <div id="upgrades" class="cards"></div>
+        </section>
+
+        <section id="rebirth-panel" class="panel">
+          <h2>转生</h2>
+          <p class="hint">数字达到 1e100 后可转生，获得层级点，永久提升产出。</p>
+          <div class="rebirth-row">
+            <div class="stat">
+              <span class="stat-label">层级点</span>
+              <span id="layer-points" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">转生次数</span>
+              <span id="rebirth-count" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">永久加成</span>
+              <span id="permanent-mult" class="stat-value">×1.00</span>
+            </div>
+          </div>
+          <div class="rebirth-row">
+            <button id="btn-rebirth" class="btn btn-danger" disabled>转生</button>
+            <button id="btn-permanent" class="btn">购买永久 +10%（1 层级点）</button>
+          </div>
+          <p id="rebirth-req" class="hint"></p>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>自动保存中</span>
+      </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

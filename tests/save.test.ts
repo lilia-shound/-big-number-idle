@@ -1,0 +1,97 @@
+/**
+ * tests/save.test.ts
+ * 存档系统验证：序列化往返、损坏容错、离线收益结算。
+ * node 环境无 localStorage，测试内用内存 mock。
+ */
+
+import { describe, it, expect, beforeEach } from "vitest";
+import { D } from "../src/core/bigNum";
+import {
+  initialState,
+  serialize,
+  deserialize,
+  computeOffline,
+  makeTickContext,
+  OFFLINE_CAP_MS,
+} from "../src/game/save";
+
+/** 内存版 localStorage */
+const storage = new Map<string, string>();
+(globalThis as Record<string, unknown>).localStorage = {
+  getItem: (k: string) => storage.get(k) ?? null,
+  setItem: (k: string, v: string) => void storage.set(k, v),
+  removeItem: (k: string) => void storage.delete(k),
+};
+
+describe("serialize / deserialize", () => {
+  it("Decimal 字段往返无损", () => {
+    const s = initialState();
+    s.number = D("1e100");
+    s.totalEarned = D("1e250");
+    s.layerPoints = D("3");
+    s.counts = { gen1: 5, gen2: 2, gen3: 1 };
+    s.upgrades = ["clickx2", "gen2x15"];
+    const loaded = deserialize(serialize(s))!;
+    expect(loaded.number.eq(D("1e100"))).toBe(true);
+    expect(loaded.totalEarned.eq(D("1e250"))).toBe(true);
+    expect(loaded.counts).toEqual({ gen1: 5, gen2: 2, gen3: 1 });
+    expect(loaded.upgrades).toEqual(["clickx2", "gen2x15"]);
+  });
+
+  it("损坏数据返回 null", () => {
+    expect(deserialize("not json")).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 999 }))).toBeNull();
+  });
+});
+
+describe("computeOffline", () => {
+  beforeEach(() => storage.clear());
+
+  it("无离线时长收益为 0", () => {
+    const s = initialState();
+    const r = computeOffline(s, s.lastSaved);
+    expect(r.gain.eq(0)).toBe(true);
+    expect(r.seconds).toBe(0);
+  });
+
+  it("按每秒产出 × 时长 × 2x 计算", () => {
+    const s = initialState();
+    s.number = D(100);
+    s.counts = { gen1: 3, gen2: 0, gen3: 0 }; // 每秒 +3
+    const now = s.lastSaved + 10_000; // 10 秒
+    const r = computeOffline(s, now);
+    expect(r.seconds).toBe(10);
+    expect(r.mult).toBe(2);
+    expect(r.gain.toString()).toBe("60"); // 3 × 10 × 2
+  });
+
+  it("上限 8 小时", () => {
+    const s = initialState();
+    s.counts = { gen1: 1, gen2: 0, gen3: 0 };
+    const now = s.lastSaved + OFFLINE_CAP_MS + 3600_000; // 9 小时
+    const r = computeOffline(s, now);
+    expect(r.seconds).toBe(OFFLINE_CAP_MS / 1000);
+  });
+
+  it("升级 offlinex2 后倍率 4x", () => {
+    const s = initialState();
+    s.number = D(100);
+    s.counts = { gen1: 3, gen2: 0, gen3: 0 };
+    s.upgrades = ["offlinex2"];
+    const now = s.lastSaved + 10_000;
+    const r = computeOffline(s, now);
+    expect(r.mult).toBe(4);
+    expect(r.gain.toString()).toBe("120");
+  });
+});
+
+describe("makeTickContext", () => {
+  it("带出永久加成与升级集合", () => {
+    const s = initialState();
+    s.permanentLevel = 2;
+    s.upgrades = ["clickx2"];
+    const ctx = makeTickContext(s);
+    expect(ctx.permanentMult.toNumber()).toBeCloseTo(1.21, 5);
+    expect(ctx.upgrades.has("clickx2")).toBe(true);
+  });
+});

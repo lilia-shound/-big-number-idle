@@ -5,6 +5,7 @@
  *
  * 阶段 2：新增表示法面板（当前表示法 / 下一目标）与解锁教程弹窗。
  * 阶段 3：序数转生面板（序数等级 / 当前序数 / 门槛）与序数加成展示。
+ * 阶段 4：成就面板（已解锁高亮）与音效开关状态。
  */
 
 import { format, formatInt } from "./core/format";
@@ -27,6 +28,8 @@ import {
   unlockThreshold,
   type NotationStage,
 } from "./game/notations";
+import { ACHIEVEMENTS } from "./game/achievements";
+import { isSoundMuted } from "./core/sound";
 
 export interface UiState {
   /** 离线收益提示文本（显示一段时间后自动清空） */
@@ -205,4 +208,34 @@ export function updateUi(state: GameState, ui: UiState): void {
   const permBtn = $("btn-permanent") as HTMLButtonElement;
   permBtn.disabled = !state.layerPoints.gte(permCost);
   permBtn.textContent = `购买永久 +10%（${formatInt(permCost)} 层级点）`;
+
+  // 成就面板与音效按钮
+  renderAchievements(state);
+  renderSoundButton();
+}
+
+/** 渲染成就网格：已解锁金色高亮，未解锁暗色显示达成提示 */
+export function renderAchievements(state: GameState): void {
+  const box = $id("achievements");
+  const unlocked = new Set(state.achievements);
+  box.innerHTML = "";
+  for (const def of ACHIEVEMENTS) {
+    const isUnlocked = unlocked.has(def.id);
+    const el = document.createElement("div");
+    el.className = `achievement${isUnlocked ? " unlocked" : ""}`;
+    el.innerHTML = `
+      <div class="achievement-icon">${def.icon}</div>
+      <div class="achievement-info">
+        <div class="achievement-name">${isUnlocked ? def.name : "未解锁"}</div>
+        <div class="achievement-desc">${isUnlocked ? def.desc : def.hint}</div>
+      </div>`;
+    box.appendChild(el);
+  }
+}
+
+/** 渲染音效开关按钮文案 */
+export function renderSoundButton(): void {
+  const btn = document.getElementById("btn-sound");
+  if (!btn) return;
+  btn.textContent = isSoundMuted() ? "音效：关" : "音效：开";
 }

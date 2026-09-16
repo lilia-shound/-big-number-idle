@@ -112,8 +112,8 @@ function renderOrdinal(state: GameState, useSci: boolean): void {
 export function updateUi(state: GameState, ui: UiState): void {
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const ctx = makeTickContext(state);
-  // 未购买 sci 升级时全量用千分位显示（升级"科学计数法"才解锁 1.23e45 形式）
-  const useSci = state.upgrades.includes("sci");
+  // 已解锁"科学计数法"表示法即用 1.23e45 形式（表示法跨轮保留，序数转生不清除）
+  const useSci = state.unlockedNotations.includes("scientific");
   const fmt = (x: Decimal): string => format(x, 2, useSci);
 
   // 主数字

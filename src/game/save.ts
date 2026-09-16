@@ -4,6 +4,7 @@
  *
  * v2：新增 unlockedNotations（已解锁表示法列表），兼容 v1 旧档。
  * v3：新增 ordinalLevel（序数等级，阶段 3 序数转生），兼容 v1/v2。
+ * v4：新增 clicks（累计点击）与 achievements（已解锁成就，阶段 4），兼容 v1~v3。
  */
 
 import Decimal from "break_eternity.js";
@@ -12,7 +13,7 @@ import { tick, TickContext, applySoftCap } from "./generators";
 import { totalMult } from "./rebirth";
 
 export const SAVE_KEY = "big-number-idle-save";
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** 离线收益：上限 8 小时；基础倍率 2x，升级后 4x */
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
@@ -35,6 +36,10 @@ export interface GameState {
   ordinalLevel: number;
   /** 上次存档时间戳（ms） */
   lastSaved: number;
+  /** 累计点击次数（成就统计，阶段 4） */
+  clicks: number;
+  /** 已解锁成就 id 列表（跨转生保留，阶段 4） */
+  achievements: string[];
 }
 
 export function initialState(): GameState {
@@ -51,6 +56,8 @@ export function initialState(): GameState {
     unlockedNotations: ["plain"],
     ordinalLevel: 0,
     lastSaved: Date.now(),
+    clicks: 0,
+    achievements: [],
   };
 }
 
@@ -68,7 +75,7 @@ export function deserialize(raw: string): GameState | null {
   try {
     const obj = JSON.parse(raw);
     if (!obj || typeof obj !== "object") return null;
-    if (obj.version !== SAVE_VERSION && obj.version !== 1 && obj.version !== 2) return null;
+    if (obj.version < 1 || obj.version > SAVE_VERSION) return null;
     // 显式挑选字段（而非 spread 旧档），避免残留死字段（如 offlineApplied）混入新状态
     return {
       version: SAVE_VERSION,
@@ -95,6 +102,11 @@ export function deserialize(raw: string): GameState | null {
       // v1/v2 旧档无此字段，兜底为 0
       ordinalLevel: typeof obj.ordinalLevel === "number" ? obj.ordinalLevel : 0,
       lastSaved: typeof obj.lastSaved === "number" ? obj.lastSaved : Date.now(),
+      // v1~v3 旧档无此字段，兜底为 0 / 空（阶段 4）
+      clicks: typeof obj.clicks === "number" ? obj.clicks : 0,
+      achievements: Array.isArray(obj.achievements)
+        ? Array.from(new Set(obj.achievements))
+        : [],
     };
   } catch {
     return null;

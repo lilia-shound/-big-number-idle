@@ -50,12 +50,12 @@ describe("checkUnlocks 解锁判定", () => {
   });
 
   it("按顺序解锁多个表示法", () => {
-    const fresh = checkUnlocks(["plain"], D("10^^4"));
+    const fresh = checkUnlocks(["plain"], D("1e1e100"));
     expect(fresh.map((s) => s.id)).toEqual(["scientific", "tower", "hyperop", "arrow"]);
   });
 
   it("已解锁的不会重复返回", () => {
-    const fresh = checkUnlocks(["plain", "scientific", "tower"], D("10^^4"));
+    const fresh = checkUnlocks(["plain", "scientific", "tower"], D("1e1e100"));
     expect(fresh.map((s) => s.id)).toEqual(["hyperop", "arrow"]);
   });
 
@@ -70,7 +70,7 @@ describe("checkUnlocks 解锁判定", () => {
   });
 
   it("ordinalLevel 为 0 时不解锁 ordinal", () => {
-    const fresh = checkUnlocks(["plain", "scientific", "tower", "hyperop", "arrow", "chain"], D("10^^4"), 0);
+    const fresh = checkUnlocks(["plain", "scientific", "tower", "hyperop", "arrow", "chain"], D("1e1e300"), 0);
     expect(fresh.map((s) => s.id)).toEqual([]);
   });
 });
@@ -88,7 +88,11 @@ describe("getNotationFor 当前表示法", () => {
     expect(getNotationFor(D("1e1000")).id).toBe("tower");
   });
 
-  it("10↑↑4 → arrow", () => {
-    expect(getNotationFor(D("10^^4")).id).toBe("arrow");
+  it("1e1e100 → arrow", () => {
+    expect(getNotationFor(D("1e1e100")).id).toBe("arrow");
+  });
+
+  it("1e1e308 → chain", () => {
+    expect(getNotationFor(D("1e1e308")).id).toBe("chain");
   });
 });

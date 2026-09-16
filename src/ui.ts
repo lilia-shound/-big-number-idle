@@ -9,6 +9,7 @@
 
 import { format, formatInt } from "./core/format";
 import { D } from "./core/bigNum";
+import type Decimal from "break_eternity.js";
 import type { GameState } from "./game/save";
 import { GENERATOR_DEFS, generatorCost } from "./game/generators";
 import { UPGRADE_DEFS } from "./game/upgrades";
@@ -19,7 +20,7 @@ import {
   ORDINAL_THRESHOLD,
   PERMANENT_UPGRADE_COST,
 } from "./game/rebirth";
-import { makeTickContext, perSecondTmp } from "./game/uiHelper";
+import { makeTickContext, perSecondTmp, calcClickPower } from "./game/uiHelper";
 import {
   NOTATION_STAGES,
   getTopUnlockedNotation,
@@ -28,8 +29,10 @@ import {
 } from "./game/notations";
 
 export interface UiState {
-  /** 离线收益提示文本（一次结算后清空） */
+  /** 离线收益提示文本（显示一段时间后自动清空） */
   offlineNote: string;
+  /** 离线提示过期时间戳（ms），超过后自动隐藏并清空 */
+  offlineNoteExpire: number;
   /** 待展示的表示法教程队列 */
   tutorialQueue: NotationStage[];
 }
@@ -39,7 +42,7 @@ function $id(id: string): HTMLElement {
 }
 
 export function initUi(): UiState {
-  const ui: UiState = { offlineNote: "", tutorialQueue: [] };
+  const ui: UiState = { offlineNote: "", offlineNoteExpire: 0, tutorialQueue: [] };
   // 教程弹窗关闭：关闭当前，弹下一个待展示
   $id("btn-tutorial-close").addEventListener("click", () => {
     $id("tutorial-modal").classList.add("hidden");
@@ -85,14 +88,14 @@ function renderNotation(state: GameState): void {
   const th = unlockThreshold(next);
   if (th === null) {
     // ordinal：由序数转生解锁
-    nextEl.textContent = `下一表示法：${next.name}（累计产出达 10↑↑5 后序数转生）`;
+    nextEl.textContent = `下一表示法：${next.name}（累计产出达 1e1e308 后序数转生）`;
     return;
   }
   nextEl.textContent = `下一表示法：${next.name}（需要累计产出达到 ${next.unlockAt}）`;
 }
 
 /** 渲染序数转生面板 */
-function renderOrdinal(state: GameState): void {
+function renderOrdinal(state: GameState, useSci: boolean): void {
   $id("ordinal-level").textContent = String(state.ordinalLevel);
   $id("ordinal-name").textContent = ordinalName(state.ordinalLevel);
   $id("ordinal-mult").textContent =
@@ -103,25 +106,29 @@ function renderOrdinal(state: GameState): void {
   btn.disabled = !ready;
   $id("ordinal-req").textContent = ready
     ? "可以进行序数转生！"
-    : `距序数转生还差累计产出 ${format(ORDINAL_THRESHOLD.sub(state.totalEarned).max(D(0)))}`;
+    : `距序数转生还差累计产出 ${format(ORDINAL_THRESHOLD.sub(state.totalEarned).max(D(0)), 2, useSci)}`;
 }
 
 export function updateUi(state: GameState, ui: UiState): void {
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const ctx = makeTickContext(state);
+  // 未购买 sci 升级时全量用千分位显示（升级"科学计数法"才解锁 1.23e45 形式）
+  const useSci = state.upgrades.includes("sci");
+  const fmt = (x: Decimal): string => format(x, 2, useSci);
 
   // 主数字
-  $("num").textContent = format(state.number);
+  $("num").textContent = fmt(state.number);
   const perSec = perSecondTmp(state.number, ctx);
-  $("per-second").textContent = `每秒 ${format(perSec)}`;
-  $("btn-click").textContent = `+${format(state.clickPower)}`;
+  $("per-second").textContent = `每秒 ${fmt(perSec)}`;
+  $("btn-click").textContent = `+${fmt(calcClickPower(state))}`;
 
-  // 离线提示
+  // 离线提示：显示 15 秒后自动清空
   const note = $("offline-note");
-  if (ui.offlineNote) {
+  if (ui.offlineNote && Date.now() < ui.offlineNoteExpire) {
     note.textContent = ui.offlineNote;
     note.classList.remove("hidden");
   } else {
+    if (ui.offlineNote) ui.offlineNote = "";
     note.classList.add("hidden");
   }
 
@@ -144,7 +151,7 @@ export function updateUi(state: GameState, ui: UiState): void {
         <div class="card-count">已购 ${owned}</div>
       </div>
       <div class="card-buy">
-        <span class="price">${format(cost)}</span>
+        <span class="price">${fmt(cost)}</span>
         <button class="btn buy-btn" data-buy="gen:${def.id}" ${affordable ? "" : "disabled"}>购买</button>
       </div>`;
     genBox.appendChild(card);
@@ -172,7 +179,7 @@ export function updateUi(state: GameState, ui: UiState): void {
           <div class="card-desc">${def.desc}</div>
         </div>
         <div class="card-buy">
-          <span class="price">${format(def.cost)}</span>
+          <span class="price">${fmt(def.cost)}</span>
           <button class="btn buy-btn" data-buy="up:${def.id}" ${affordable ? "" : "disabled"}>购买</button>
         </div>`;
     }
@@ -180,7 +187,7 @@ export function updateUi(state: GameState, ui: UiState): void {
   }
 
   // 序数转生
-  renderOrdinal(state);
+  renderOrdinal(state, useSci);
 
   // 转生
   $("layer-points").textContent = formatInt(state.layerPoints);
@@ -192,7 +199,7 @@ export function updateUi(state: GameState, ui: UiState): void {
   rebirthBtn.disabled = !rebirthable;
   $("rebirth-req").textContent = rebirthable
     ? "可以转生了！"
-    : `距转生还差 ${format(D(1e100).sub(state.number))}`;
+    : `距转生还差 ${fmt(D(1e100).sub(state.number))}`;
 
   const permCost = PERMANENT_UPGRADE_COST(state.permanentLevel);
   const permBtn = $("btn-permanent") as HTMLButtonElement;

@@ -27,11 +27,14 @@ import {
   PERMANENT_UPGRADE_COST,
 } from "./game/rebirth";
 import { updateUi, initUi, showTutorial, type UiState } from "./ui";
+import { calcClickPower } from "./game/uiHelper";
 import { checkUnlocks } from "./game/notations";
 
 const UI_MS = 100;
 const TICK_MS = 1000;
 const SAVE_INTERVAL_MS = 30_000;
+/** 离线/转生提示展示时长（ms），到期自动清空 */
+const OFFLINE_NOTE_MS = 15_000;
 
 let state = loadFromStorage() ?? initialState();
 const ui: UiState = initUi();
@@ -58,17 +61,14 @@ function applyOffline(): void {
     state.lastSaved = now;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    ui.offlineNote = `离线 ${h > 0 ? `${h}小时` : ""}${m}分钟，获得 ${format(gain)}（×${mult}）`;
+    ui.offlineNote = `离线 ${h > 0 ? `${h}小时` : ""}${m}分钟，获得 ${format(gain, 2, state.upgrades.includes("sci"))}（×${mult}）`;
+    ui.offlineNoteExpire = Date.now() + OFFLINE_NOTE_MS;
   }
 }
 
-/** 点击 +1（受升级与永久加成影响） */
+/** 点击 +1（受升级与永久加成影响，与 UI 显示一致） */
 function onClick(): void {
-  const ctx = makeTickContext(state);
-  let power = D(1);
-  if (state.upgrades.includes("clickx2")) power = power.mul(2);
-  if (state.upgrades.includes("clickx5")) power = power.mul(5);
-  power = power.mul(ctx.permanentMult);
+  const power = calcClickPower(state);
   state.clickPower = power;
   state.number = state.number.add(power);
   state.totalEarned = state.totalEarned.add(power);
@@ -107,6 +107,7 @@ function onRebirth(): void {
   state.upgrades = [];
   state.rebirths += 1;
   ui.offlineNote = `转生成功！获得 ${r.gained.toString()} 层级点（当前永久加成 ×${(1.1 ** state.permanentLevel).toFixed(2)}）`;
+  ui.offlineNoteExpire = Date.now() + OFFLINE_NOTE_MS;
 }
 
 /** 购买永久加成（+10% 产出 / 级） */
@@ -129,6 +130,7 @@ function onOrdinalRebirth(): void {
   state.layerPoints = ZERO;
   state.permanentLevel = 0;
   ui.offlineNote = `进入序数领域 ${ordinalName(state.ordinalLevel)}！产出 ×10^${state.ordinalLevel * 100}`;
+  ui.offlineNoteExpire = Date.now() + OFFLINE_NOTE_MS;
   syncUnlocks();
 }
 

@@ -70,6 +70,33 @@ describe("serialize / deserialize", () => {
     const loaded = deserialize(serialize(s3))!;
     expect(loaded.ordinalLevel).toBe(3);
   });
+
+  it("unlockedNotations 去重且至少含 plain", () => {
+    const s = initialState();
+    s.unlockedNotations = ["plain", "scientific", "scientific", "plain"];
+    const loaded = deserialize(serialize(s))!;
+    expect(loaded.unlockedNotations).toEqual(["plain", "scientific"]);
+  });
+
+  it("旧档中残留的 offlineApplied 字段被忽略", () => {
+    const v3 = {
+      version: 3,
+      number: "1e50",
+      totalEarned: "1e100",
+      clickPower: "1",
+      counts: { gen1: 3, gen2: 1, gen3: 0 },
+      upgrades: ["clickx2"],
+      layerPoints: "1",
+      permanentLevel: 1,
+      rebirths: 2,
+      unlockedNotations: ["plain", "scientific"],
+      ordinalLevel: 0,
+      lastSaved: Date.now(),
+      offlineApplied: true,
+    };
+    const loaded = deserialize(JSON.stringify(v3))!;
+    expect((loaded as unknown as Record<string, unknown>).offlineApplied).toBeUndefined();
+  });
 });
 
 describe("computeOffline", () => {
@@ -110,6 +137,18 @@ describe("computeOffline", () => {
     const r = computeOffline(s, now);
     expect(r.mult).toBe(4);
     expect(r.gain.toString()).toBe("120");
+  });
+
+  it("幂型生成器（gen3）逐 tick 模拟，收益高于线性估算", () => {
+    const s = initialState();
+    s.number = D(10);
+    s.counts = { gen1: 0, gen2: 0, gen3: 1 }; // 每秒 ^1.1
+    const now = s.lastSaved + 5_000; // 5 秒
+    const r = computeOffline(s, now);
+    // 线性估算：1 秒产出(10^1.1-10≈2.59) × 5 × 2 ≈ 25.9
+    // 逐 tick 因底数不断增长，收益显著更高（≈130+）
+    expect(r.gain.gt(D(100))).toBe(true);
+    expect(r.gain.lt(D(200))).toBe(true);
   });
 });
 

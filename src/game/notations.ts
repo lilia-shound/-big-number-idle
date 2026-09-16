@@ -59,22 +59,22 @@ export const NOTATION_STAGES: NotationStage[] = [
   {
     id: "hyperop",
     name: "超运算",
-    example: "10↑↑4",
-    unlockAt: "10↑↑4",
-    tutorial: "↑↑ 是迭代幂：10↑↑4 = 10^(10^(10^10))。指数塔开始堆叠。",
+    example: "10↑↑3 = 10^(10^10)",
+    unlockAt: "10↑↑3",
+    tutorial: "↑↑ 是迭代幂：10↑↑3 = 10^(10^10)。指数塔开始堆叠。",
   },
   {
     id: "arrow",
     name: "多箭头",
-    example: "10↑↑↑10",
-    unlockAt: "10↑↑↑10",
+    example: "10^(10^100)",
+    unlockAt: "10^(10^100)",
     tutorial: "三个箭头：把迭代幂再迭代。这是超越指数塔的巨大结构。",
   },
   {
     id: "chain",
     name: "链式箭头",
-    example: "10→10→10",
-    unlockAt: "10→10→10",
+    example: "10^(10^308)",
+    unlockAt: "10^(10^308)",
     tutorial: "康威链式箭头，比多箭头再大一个数量级。",
   },
   {
@@ -100,11 +100,11 @@ export function unlockThreshold(stage: NotationStage): Decimal | null {
     case "tower":
       return D("1e1e3"); // 10^1000：指数塔入口
     case "hyperop":
-      return D("10^^3"); // 10↑↑3 = 10^(10^10)
+      return D("1e1e10"); // 10↑↑3 = 10^(10^10)
     case "arrow":
-      return D("10^^4"); // 10↑↑4
+      return D("1e1e100"); // 10^(10^100)
     case "chain":
-      return D("10^^5"); // 10↑↑5
+      return D("1e1e308"); // 10^(10^308)，与序数转生门槛一致
     case "ordinal":
       return null;
   }

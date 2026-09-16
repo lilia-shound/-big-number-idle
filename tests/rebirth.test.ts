@@ -76,14 +76,15 @@ describe("PERMANENT_UPGRADE_COST", () => {
 
 // ---------- 阶段 3：序数转生 ----------
 describe("canOrdinalRebirth", () => {
-  it("累计产出达到 10↑↑5 前不可序数转生", () => {
-    expect(canOrdinalRebirth(D("10^^4"))).toBe(false);
+  it("累计产出达到 1e1e308 前不可序数转生", () => {
+    expect(canOrdinalRebirth(D("1e1e100"))).toBe(false);
     expect(canOrdinalRebirth(D(1e105))).toBe(false);
   });
 
-  it("达到 10↑↑5 可序数转生", () => {
+  it("达到 1e1e308 可序数转生", () => {
     expect(canOrdinalRebirth(ORDINAL_THRESHOLD)).toBe(true);
-    expect(canOrdinalRebirth(D("10^^5"))).toBe(true);
+    expect(canOrdinalRebirth(D("1e1e308"))).toBe(true);
+    expect(canOrdinalRebirth(D("1e1e400"))).toBe(true);
   });
 });
 

@@ -41,14 +41,25 @@ function formatMantissa(m: number, decimals: number): string {
  * 主格式化入口。
  * @param x 要格式化的大数
  * @param decimals 尾数小数位（科学计数法部分）
+ * @param useSci 是否允许科学计数法（false 时全量用千分位整数显示，即未购买 sci 升级时的表现）
  */
-export function format(x: Decimal, decimals = 2): string {
+export function format(x: Decimal, decimals = 2, useSci = true): string {
   if (x.isNan()) return "NaN";
   if (!x.isFinite()) {
     return x.sign < 0 ? "-Infinity" : "Infinity";
   }
-  if (x.sign < 0) return "-" + format(x.neg(), decimals);
+  if (x.sign < 0) return "-" + format(x.neg(), decimals, useSci);
   if (x.eq(0)) return "0";
+
+  // 未解锁科学计数法：普通数（含大数）一律千分位整数
+  if (!useSci) {
+    const n = x.toNumber();
+    if (n >= 1000) {
+      return Math.floor(n).toLocaleString("en-US");
+    }
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(decimals).replace(/\.?0+$/, "");
+  }
 
   // 普通数
   if (x.lt(THRESHOLD)) {
@@ -62,14 +73,14 @@ export function format(x: Decimal, decimals = 2): string {
     const e = x.exponent;
     if (!Number.isFinite(e) || Math.abs(e) >= NEST_THRESHOLD) {
       // 指数太大：嵌套显示 1e1e15
-      return `${m}e${format(new Decimal(e), decimals)}`;
+      return `${m}e${format(new Decimal(e), decimals, useSci)}`;
     }
     return `${m}e${e}`;
   }
 
   // layer >= 2：指数部分 = 10^mag（本身是一个 layer 1 的大数），递归一层
   const expDecimal = D(10).pow(x.mag);
-  return `${m}e${format(expDecimal, decimals)}`;
+  return `${m}e${format(expDecimal, decimals, useSci)}`;
 }
 
 /** 转生货币等整数场合使用（无小数尾数） */

@@ -53,6 +53,12 @@ describe("tickGen2 自动×2", () => {
     const out = tickGen2(D(10), 1, ctx({ gen2: 1 }, new Set(["gen2x15", "gen2x2"])));
     expect(out.toString()).toBe("40");
   });
+
+  it("结果受永久/序数加成（permanentMult 乘法）", () => {
+    const out = tickGen2(D(100), 2, ctx({ gen2: 2 }, noUpgrades, D("1e100")));
+    // 100 × 2^2 × 1e100 = 4e102
+    expect(out.log10().toNumber()).toBeCloseTo(102 + Math.log10(4), 5);
+  });
 });
 
 describe("tickGen3 自动^1.1", () => {

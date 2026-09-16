@@ -35,8 +35,6 @@ export interface GameState {
   ordinalLevel: number;
   /** 上次存档时间戳（ms） */
   lastSaved: number;
-  /** 是否刚刚结算过离线收益（避免重复） */
-  offlineApplied: boolean;
 }
 
 export function initialState(): GameState {
@@ -53,7 +51,6 @@ export function initialState(): GameState {
     unlockedNotations: ["plain"],
     ordinalLevel: 0,
     lastSaved: Date.now(),
-    offlineApplied: false,
   };
 }
 
@@ -72,20 +69,32 @@ export function deserialize(raw: string): GameState | null {
     const obj = JSON.parse(raw);
     if (!obj || typeof obj !== "object") return null;
     if (obj.version !== SAVE_VERSION && obj.version !== 1 && obj.version !== 2) return null;
+    // 显式挑选字段（而非 spread 旧档），避免残留死字段（如 offlineApplied）混入新状态
     return {
-      ...initialState(),
-      ...obj,
+      version: SAVE_VERSION,
       number: D(obj.number ?? "0"),
       totalEarned: D(obj.totalEarned ?? "0"),
       clickPower: D(obj.clickPower ?? "1"),
-      layerPoints: D(obj.layerPoints ?? "0"),
+      counts: {
+        gen1: obj.counts?.gen1 ?? 0,
+        gen2: obj.counts?.gen2 ?? 0,
+        gen3: obj.counts?.gen3 ?? 0,
+      },
       upgrades: Array.isArray(obj.upgrades) ? obj.upgrades : [],
+      layerPoints: D(obj.layerPoints ?? "0"),
+      permanentLevel: typeof obj.permanentLevel === "number" ? obj.permanentLevel : 0,
+      rebirths: typeof obj.rebirths === "number" ? obj.rebirths : 0,
       // v1 旧档无此字段，兜底为初始解锁；达标项由 main 启动时 syncUnlocks 补齐
-      unlockedNotations: Array.isArray(obj.unlockedNotations)
-        ? obj.unlockedNotations
-        : ["plain"],
+      // 去重 + 保证至少含 plain，避免重复项污染表示法切换
+      unlockedNotations: Array.from(
+        new Set([
+          ...(Array.isArray(obj.unlockedNotations) ? obj.unlockedNotations : []),
+          "plain",
+        ]),
+      ),
       // v1/v2 旧档无此字段，兜底为 0
       ordinalLevel: typeof obj.ordinalLevel === "number" ? obj.ordinalLevel : 0,
+      lastSaved: typeof obj.lastSaved === "number" ? obj.lastSaved : Date.now(),
     };
   } catch {
     return null;
@@ -113,7 +122,9 @@ export function makeTickContext(state: GameState): TickContext {
 }
 
 /**
- * 离线收益结算：按最后一次在线时的每秒产出 × 离线时长（上限 8h）× 倍率。
+ * 离线收益结算：逐秒模拟在线 tick（与在线共享同一套生成器/软上限逻辑），
+ * 每 tick 产出额外乘离线倍率，避免 1 秒产出 × 时长 的线性估算
+ * 在幂型生成器（gen3）下严重失真。
  * 返回 (结算后的 number 增量, 离线时长秒数, 倍率)。
  */
 export function computeOffline(state: GameState, now: number): { gain: Decimal; seconds: number; mult: number } {
@@ -123,10 +134,14 @@ export function computeOffline(state: GameState, now: number): { gain: Decimal; 
   const seconds = capped / 1000;
   const mult = state.upgrades.includes("offlinex2") ? OFFLINE_UPGRADED_MULT : OFFLINE_BASE_MULT;
   const ctx = makeTickContext(state);
-  // 用 1 秒产出估算，再乘离线时长与倍率；结算后应用软上限（与在线一致）
-  const oneSec = tick(state.number, ctx).sub(state.number);
-  const rawGain = oneSec.mul(seconds).mul(mult).max(ZERO);
-  const cappedNum = applySoftCap(state.number.add(rawGain));
-  const gain = cappedNum.sub(state.number).max(ZERO);
+  // 逐 tick 模拟（与在线一致，含软上限）；每 tick 增量 × 离线倍率
+  const ticks = Math.max(1, Math.floor(capped / 1000));
+  let n = state.number;
+  for (let i = 0; i < ticks; i++) {
+    const next = tick(n, ctx);
+    const gained = next.sub(n).mul(mult).max(ZERO);
+    n = applySoftCap(n.add(gained));
+  }
+  const gain = n.sub(state.number).max(ZERO);
   return { gain, seconds, mult };
 }

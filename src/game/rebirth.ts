@@ -2,7 +2,7 @@
  * game/rebirth.ts
  * 转生系统两层：
  * 1. 普通转生：数字达 1e100，重置资源按累计产出结算层级点，购买永久 +10%。
- * 2. 序数转生（终极转生）：累计产出达 10↑↑5（解锁链式箭头）后开放，
+ * 2. 序数转生（终极转生）：累计产出达 1e1e308（链式箭头表示法解锁后开放）后进入"序数领域"，
  *    进入"序数领域"，获得序数等级并解锁序数表示法（ε₀ / Γ₀ ...）。
  *
  * 序数等级提供海量产出加成（×10^100 / 级），使转生后快速重回高端，
@@ -19,8 +19,8 @@ const POINTS_PER_ORDER = 100;
 /** 单次转生层级点封顶（配合软上限，防数字冲过头导致点数爆炸） */
 const MAX_POINTS_PER_REBIRTH = 2;
 
-/** 序数转生门槛：累计产出 ≥ 10↑↑5（链式箭头表示法解锁后开放） */
-export const ORDINAL_THRESHOLD: Decimal = D("10^^5");
+/** 序数转生门槛：累计产出 ≥ 1e1e308（链式箭头表示法解锁后开放） */
+export const ORDINAL_THRESHOLD: Decimal = D("1e1e308");
 
 /** 层级点永久升级：每级 +10% 产出，价格为逐级递增的层级点 */
 export const PERMANENT_UPGRADE_COST = (level: number): Decimal => D(2).pow(level);
@@ -96,7 +96,7 @@ export function canRebirth(num: Decimal): boolean {
   return num.gte(REBIRTH_THRESHOLD);
 }
 
-/** 是否可以序数转生：累计产出达到 10↑↑5 */
+/** 是否可以序数转生：累计产出达到 1e1e308 */
 export function canOrdinalRebirth(totalEarned: Decimal): boolean {
   return totalEarned.gte(ORDINAL_THRESHOLD);
 }

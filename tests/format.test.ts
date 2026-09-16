@@ -39,6 +39,13 @@ describe("format 边界", () => {
     // 10^^4 = 10^(10^(10^10)) → 1e1e1e10
     expect(format(D(10).tetrate(4))).toBe("1e1e1e10");
   });
+
+  it("useSci=false 时全量千分位（未购买 sci 升级）", () => {
+    expect(format(D(999), 2, false)).toBe("999");
+    expect(format(D(1234), 2, false)).toBe("1,234");
+    expect(format(D(1e6), 2, false)).toBe("1,000,000");
+    expect(format(D(1.5), 2, false)).toBe("1.5");
+  });
 });
 
 describe("format 稳定性", () => {

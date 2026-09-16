@@ -72,13 +72,13 @@ export function tickGen1(num: Decimal, count: number, ctx: TickContext): Decimal
   return num.add(rate.mul(ctx.permanentMult));
 }
 
-/** 生成器 2：每秒 ×(2^count)，升级 gen2x15 → ×3，gen2x2 → ×4 */
+/** 生成器 2：每秒 ×(2^count)，升级 gen2x15 → ×3，gen2x2 → ×4；结果受永久/序数加成 */
 export function tickGen2(num: Decimal, count: number, ctx: TickContext): Decimal {
   if (count <= 0) return num;
   let mult = 2;
   if (ctx.upgrades.has("gen2x15")) mult = 3;
   if (ctx.upgrades.has("gen2x2")) mult = 4;
-  return num.mul(D(mult).pow(count));
+  return num.mul(D(mult).pow(count)).mul(ctx.permanentMult);
 }
 
 /** 生成器 3：每秒 number^(1.1^count)，升级 gen3x12 → 1.2，gen3x15 → 1.5 */
@@ -109,8 +109,9 @@ export function perSecond(num: Decimal, ctx: TickContext): Decimal {
 /**
  * 接近转生门槛 1e100 时对数字本身做 log10 空间压缩，防止超指数生成器
  * 一口气冲过门槛太远、导致转生层级点结算爆炸。
- * 1e95 起生效，数字 log10 渐近封顶 1e105（永远无法冲过头），
- * 玩家在 log10 ≥ ~98.5 后即可达到 1e100 并转生。
+ * 1e95 起生效，在 log10 95~105 压缩带内数字被压向 1e105；
+ * 超过 1e105 解除压缩、数字正常增长（转生点已由 MAX_POINTS_PER_REBIRTH
+ * 封顶，解除后不会导致层级点爆炸，玩家可继续冲刺更高表示法）。
  */
 export const SOFT_START_LOG = 95; // 1e95 起压缩
 export const SOFT_CAP_LOG = 105; // 压缩后的 log10 绝对上限（数字 ≤ 1e105）

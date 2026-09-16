@@ -100,18 +100,24 @@ describe("applySoftCap 软上限", () => {
     expect(y).toBeLessThan(102);
   });
 
-  it("log10 渐近封顶 1e105，数字永不冲过头", () => {
-    // 原始 log10 再大（如 1e4、1e6），压缩后都不超过 1e105
-    const cap = applySoftCap(D("1e1e4")).log10().toNumber();
-    expect(cap).toBeLessThanOrEqual(105);
-    expect(cap).toBeGreaterThan(104.5);
-    expect(applySoftCap(D("1e1e6")).log10().toNumber()).toBeLessThanOrEqual(105);
+  it("压缩带内数字被压向 1e105", () => {
+    // 原始 log10=104 → 压缩后接近 105
+    const y = applySoftCap(D(10).pow(104)).log10().toNumber();
+    expect(y).toBeGreaterThan(103);
+    expect(y).toBeLessThan(105);
+  });
+
+  it("超过 1e105 解除压缩，数字正常增长", () => {
+    // 原始 log10=106 → 原样返回（解除压缩，冲刺更高表示法）
+    expect(applySoftCap(D(10).pow(106)).log10().toNumber()).toBeGreaterThan(105.9);
+    // 极大数（1e1e6）不再被封顶
+    expect(applySoftCap(D("1e1e6")).log10().toNumber()).toBeGreaterThan(1e6 - 1);
   });
 
   it("不会因极大数溢出而异常", () => {
-    // 数字极大（log10 很大）时压缩结果仍为有效数字
     const out = applySoftCap(D("1e1e100"));
     expect(out.log10().toNumber()).toBeGreaterThan(0);
-    expect(out.log10().toNumber()).toBeLessThanOrEqual(105);
+    expect(out.isFinite()).toBe(true);
   });
 });
+

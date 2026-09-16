@@ -2,6 +2,8 @@
  * ui.ts
  * DOM 渲染：根据 GameState 更新全部界面元素。
  * 纯展示逻辑，不包含任何游戏规则。
+ *
+ * 阶段 2：新增表示法面板（当前表示法 / 下一目标）与解锁教程弹窗。
  */
 
 import { format, formatInt } from "./core/format";
@@ -11,14 +13,69 @@ import { GENERATOR_DEFS, generatorCost } from "./game/generators";
 import { UPGRADE_DEFS } from "./game/upgrades";
 import { canRebirth, PERMANENT_UPGRADE_COST } from "./game/rebirth";
 import { makeTickContext, perSecondTmp } from "./game/uiHelper";
+import {
+  NOTATION_STAGES,
+  getNotationFor,
+  unlockThreshold,
+  type NotationStage,
+} from "./game/notations";
 
 export interface UiState {
   /** 离线收益提示文本（一次结算后清空） */
   offlineNote: string;
+  /** 待展示的表示法教程队列 */
+  tutorialQueue: NotationStage[];
+}
+
+function $id(id: string): HTMLElement {
+  return document.getElementById(id)!;
 }
 
 export function initUi(): UiState {
-  return { offlineNote: "" };
+  const ui: UiState = { offlineNote: "", tutorialQueue: [] };
+  // 教程弹窗关闭：关闭当前，弹下一个待展示
+  $id("btn-tutorial-close").addEventListener("click", () => {
+    $id("tutorial-modal").classList.add("hidden");
+    if (ui.tutorialQueue.length > 0) {
+      showTutorialModal(ui.tutorialQueue.shift()!);
+    }
+  });
+  return ui;
+}
+
+function showTutorialModal(stage: NotationStage): void {
+  $id("tutorial-title").textContent = `解锁表示法：${stage.name}`;
+  $id("tutorial-example").textContent = stage.example;
+  $id("tutorial-text").textContent = stage.tutorial;
+  $id("tutorial-modal").classList.remove("hidden");
+}
+
+/** 入队并弹出表示法教程（未弹出时立即弹第一个） */
+export function showTutorial(ui: UiState, stage: NotationStage): void {
+  ui.tutorialQueue.push(stage);
+  if ($id("tutorial-modal").classList.contains("hidden")) {
+    showTutorialModal(ui.tutorialQueue.shift()!);
+  }
+}
+
+/** 渲染表示法面板：当前表示法 + 下一目标 */
+function renderNotation(state: GameState): void {
+  const current = getNotationFor(state.totalEarned);
+  $id("notation-name").textContent = current.name;
+  $id("notation-example").textContent = current.example;
+
+  const have = new Set(state.unlockedNotations);
+  // 找第一个未解锁的常规表示法（跳过 ordinal：阶段 3）
+  const next = NOTATION_STAGES.find((s) => !have.has(s.id) && s.id !== "ordinal");
+  const nextEl = $id("notation-next");
+  if (!next) {
+    nextEl.textContent = "表示法已全部解锁！";
+    return;
+  }
+  const th = unlockThreshold(next);
+  nextEl.textContent = th
+    ? `下一表示法：${next.name}（需要累计产出达到 ${next.unlockAt}）`
+    : `下一表示法：${next.name}（${next.unlockAt}）`;
 }
 
 export function updateUi(state: GameState, ui: UiState): void {
@@ -39,6 +96,9 @@ export function updateUi(state: GameState, ui: UiState): void {
   } else {
     note.classList.add("hidden");
   }
+
+  // 表示法面板
+  renderNotation(state);
 
   // 生成器
   const genBox = $("generators");

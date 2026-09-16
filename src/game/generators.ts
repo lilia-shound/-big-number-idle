@@ -125,16 +125,22 @@ function smoothstep(t: number): number {
 export function softCapFactor(num: Decimal): number {
   const x = num.log10().toNumber();
   if (!Number.isFinite(x) || x <= SOFT_START_LOG) return 1;
-  if (x > SOFT_CAP_LOG) return 0;
+  if (x > SOFT_CAP_LOG) return 1;
   const t = (x - SOFT_START_LOG) / (SOFT_CAP_LOG - SOFT_START_LOG); // 0~1
   // 单调衰减：在压缩带内从 1 平滑降到 0（表达"数字越接近上限推进越慢"）
   return 1 - smoothstep(t);
 }
 
-/** 应用软上限：压缩后的数字（tick 后调用） */
+/**
+ * 应用软上限（tick 后调用）：
+ * - log10 ≤ 1e95：不压缩，原样返回；
+ * - 1e95 ~ 1e105：压缩带，数字被压向 1e105，防止冲过转生门槛后瞬时爆炸；
+ * - 超过 1e105：解除压缩，数字正常增长（转生点已有封顶保护，可安心冲刺更高表示法）。
+ */
 export function applySoftCap(num: Decimal): Decimal {
   const x = num.log10().toNumber();
   if (!Number.isFinite(x) || x <= SOFT_START_LOG) return num;
+  if (x > SOFT_CAP_LOG) return num;
   const extra = x - SOFT_START_LOG;
   const y = SOFT_START_LOG + (SOFT_CAP_LOG - SOFT_START_LOG) * (1 - Math.exp(-extra / SOFT_RAMP));
   return D(10).pow(y);

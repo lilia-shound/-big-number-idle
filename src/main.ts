@@ -2,6 +2,7 @@
  * main.ts
  * 入口：加载存档 → 离线收益结算 → 游戏循环 → 事件绑定 → 自动保存。
  * 阶段 1：点击 + 3 生成器 + 10 升级 + 转生 + 层级点永久加成。
+ * 阶段 2：表示法解锁系统（累计产出跨过门槛自动解锁并弹教程）。
  *
  * 节奏设计：游戏规则按"每秒"结算（tick），UI 每 100ms 刷新。
  */
@@ -19,7 +20,8 @@ import {
   makeTickContext,
 } from "./game/save";
 import { doRebirth, PERMANENT_UPGRADE_COST } from "./game/rebirth";
-import { updateUi, initUi, type UiState } from "./ui";
+import { updateUi, initUi, showTutorial, type UiState } from "./ui";
+import { checkUnlocks } from "./game/notations";
 
 const UI_MS = 100;
 const TICK_MS = 1000;
@@ -27,6 +29,18 @@ const SAVE_INTERVAL_MS = 30_000;
 
 let state = loadFromStorage() ?? initialState();
 const ui: UiState = initUi();
+
+/**
+ * 表示法解锁检查：用累计产出（totalEarned）判断，跨轮保留。
+ * 新解锁的表示法写入存档并弹教程。
+ */
+function syncUnlocks(): void {
+  const fresh = checkUnlocks(state.unlockedNotations, state.totalEarned);
+  for (const stage of fresh) {
+    state.unlockedNotations.push(stage.id);
+    showTutorial(ui, stage);
+  }
+}
 
 /** 离线收益结算（仅启动时一次） */
 function applyOffline(): void {
@@ -52,6 +66,7 @@ function onClick(): void {
   state.clickPower = power;
   state.number = state.number.add(power);
   state.totalEarned = state.totalEarned.add(power);
+  syncUnlocks();
 }
 
 /** 购买生成器 / 升级 */
@@ -76,7 +91,7 @@ function onBuy(kind: string, id: string): void {
   }
 }
 
-/** 转生：结算层级点，重置产出类资源 */
+/** 转生：结算层级点，重置产出类资源（已解锁表示法保留） */
 function onRebirth(): void {
   const r = doRebirth(state.totalEarned, state.layerPoints, state.permanentLevel);
   state.layerPoints = r.newPoints;
@@ -97,7 +112,7 @@ function onBuyPermanent(): void {
   }
 }
 
-/** 每秒游戏逻辑（含转生门槛软上限：数字在 1e95~1e105 间压缩，防层级点爆炸） */
+/** 每秒游戏逻辑（含转生门槛软上限：数字在 1e95~1e105 间压缩，防层级点爆炸；过 1e105 解除压缩冲刺更高表示法） */
 function tickGame(): void {
   const before = state.number;
   const ctx = makeTickContext(state);
@@ -107,10 +122,12 @@ function tickGame(): void {
   if (gained.gt(ZERO)) {
     state.totalEarned = state.totalEarned.add(gained);
   }
+  syncUnlocks();
 }
 
 // ---------- 启动 ----------
 applyOffline();
+syncUnlocks();
 updateUi(state, ui);
 
 // 事件绑定（事件委托）

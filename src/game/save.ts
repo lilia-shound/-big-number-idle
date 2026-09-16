@@ -1,6 +1,8 @@
 /**
  * game/save.ts
  * 存档：localStorage 序列化（版本化 + 容错），含离线收益结算。
+ *
+ * v2：新增 unlockedNotations（已解锁表示法列表），兼容 v1 旧档。
  */
 
 import Decimal from "break_eternity.js";
@@ -8,7 +10,7 @@ import { D, ZERO } from "../core/bigNum";
 import { tick, TickContext, applySoftCap } from "./generators";
 
 export const SAVE_KEY = "big-number-idle-save";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** 离线收益：上限 8 小时；基础倍率 2x，升级后 4x */
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
@@ -25,6 +27,8 @@ export interface GameState {
   layerPoints: Decimal;
   permanentLevel: number;
   rebirths: number;
+  /** 已解锁的表示法 id 列表（至少包含 plain） */
+  unlockedNotations: string[];
   /** 上次存档时间戳（ms） */
   lastSaved: number;
   /** 是否刚刚结算过离线收益（避免重复） */
@@ -42,6 +46,7 @@ export function initialState(): GameState {
     layerPoints: ZERO,
     permanentLevel: 0,
     rebirths: 0,
+    unlockedNotations: ["plain"],
     lastSaved: Date.now(),
     offlineApplied: false,
   };
@@ -61,7 +66,7 @@ export function deserialize(raw: string): GameState | null {
   try {
     const obj = JSON.parse(raw);
     if (!obj || typeof obj !== "object") return null;
-    if (obj.version !== SAVE_VERSION) return null;
+    if (obj.version !== SAVE_VERSION && obj.version !== 1) return null;
     return {
       ...initialState(),
       ...obj,
@@ -70,6 +75,10 @@ export function deserialize(raw: string): GameState | null {
       clickPower: D(obj.clickPower ?? "1"),
       layerPoints: D(obj.layerPoints ?? "0"),
       upgrades: Array.isArray(obj.upgrades) ? obj.upgrades : [],
+      // v1 旧档无此字段，兜底为初始解锁；达标项由 main 启动时 syncUnlocks 补齐
+      unlockedNotations: Array.isArray(obj.unlockedNotations)
+        ? obj.unlockedNotations
+        : ["plain"],
     };
   } catch {
     return null;

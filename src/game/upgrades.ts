@@ -4,7 +4,7 @@
  */
 
 import Decimal from "break_eternity.js";
-import { D, MILLION } from "../core/bigNum";
+import { D } from "../core/bigNum";
 
 export interface UpgradeDef {
   id: string;
@@ -22,6 +22,5 @@ export const UPGRADE_DEFS: UpgradeDef[] = [
   { id: "gen2x2", name: "生成器×2 强化 II", desc: "自动 ×3 升级为 ×4", cost: D(1e8) },
   { id: "gen3x12", name: "生成器^1.1 强化 I", desc: "自动 ^1.1 升级为 ^1.2", cost: D(1e9) },
   { id: "gen3x15", name: "生成器^1.1 强化 II", desc: "自动 ^1.2 升级为 ^1.5", cost: D(1e11) },
-  { id: "sci", name: "科学计数法", desc: "数字超过 1e6 后自动以 1.23e45 显示", cost: MILLION },
   { id: "offlinex2", name: "离线收益 I", desc: "离线收益上限从 2x 提升到 4x", cost: D(1e6) },
 ];

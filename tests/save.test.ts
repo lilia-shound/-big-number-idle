@@ -71,6 +71,36 @@ describe("serialize / deserialize", () => {
     expect(loaded.ordinalLevel).toBe(3);
   });
 
+  it("v1~v3 旧档迁移：clicks / achievements 兜底（阶段 4）", () => {
+    const v3 = {
+      version: 3,
+      number: "1e50",
+      totalEarned: "1e100",
+      clickPower: "1",
+      counts: { gen1: 3, gen2: 1, gen3: 0 },
+      upgrades: ["clickx2"],
+      layerPoints: "1",
+      permanentLevel: 1,
+      rebirths: 2,
+      unlockedNotations: ["plain", "scientific"],
+      ordinalLevel: 0,
+      lastSaved: Date.now(),
+    };
+    const loaded = deserialize(JSON.stringify(v3))!;
+    expect(loaded.clicks).toBe(0);
+    expect(loaded.achievements).toEqual([]);
+    expect(loaded.version).toBe(4);
+  });
+
+  it("clicks / achievements 往返保留且 achievements 去重", () => {
+    const s = initialState();
+    s.clicks = 42;
+    s.achievements = ["first-click", "first-click", "click-100"];
+    const loaded = deserialize(serialize(s))!;
+    expect(loaded.clicks).toBe(42);
+    expect(loaded.achievements).toEqual(["first-click", "click-100"]);
+  });
+
   it("unlockedNotations 去重且至少含 plain", () => {
     const s = initialState();
     s.unlockedNotations = ["plain", "scientific", "scientific", "plain"];

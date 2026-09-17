@@ -522,3 +522,76 @@ body {
     transform: scale(1);
   }
 }
+
+/* ---------- 阶段 5：移动端适配与发布打磨 ---------- */
+/* 触控优化：禁双击缩放延迟、去掉点击高亮 */
+.btn,
+.btn-sound,
+.card,
+.achievement {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 小屏（手机为主）：按钮全宽、面板收紧、数据块等宽排列 */
+@media (max-width: 480px) {
+  #app {
+    padding: 16px 12px 40px;
+  }
+
+  .hero h1 {
+    font-size: 1.6rem;
+  }
+
+  .panel {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .btn-big {
+    min-width: 100%;
+    margin-top: 10px;
+    padding: 13px 20px;
+  }
+
+  .rebirth-row {
+    gap: 8px;
+  }
+
+  .stat {
+    flex: 1;
+    padding: 6px 8px;
+  }
+
+  .card-buy {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .card-buy .price {
+    text-align: center;
+  }
+
+  .achievements {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .modal-box {
+    padding: 20px 16px;
+  }
+}
+
+/* iOS 安全区（刘海屏底部/顶部避让） */
+@supports (padding: env(safe-area-inset-bottom)) {
+  #app {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+
+  .toast {
+    top: calc(18px + env(safe-area-inset-top));
+  }
+}

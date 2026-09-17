@@ -1,6 +1,6 @@
 {
   "name": "big-number-idle",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "大数增量游戏 - 把大数表示法本身做成玩法",
   "scripts": {
